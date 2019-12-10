@@ -1,3 +1,15 @@
+### v0.5.6
+- Add type Switch
+
+### v0.5.5
+- Update GoogleDrive dependency
+
+### v0.5.4
+- Fix GoogleDrive issue
+
+### v0.5.3
+- Added an optional parameter to disable the automatic repetition of the last entry every 10 minutes
+
 ### v0.5.2
 - Initial support for Aqua accessory type
 

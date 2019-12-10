@@ -13,6 +13,7 @@ const TYPE_ENERGY = 'energy',
 	TYPE_WEATHER = 'weather',
 	TYPE_DOOR = 'door',
 	TYPE_MOTION = 'motion',
+	TYPE_SWITCH = 'switch',
 	TYPE_THERMO = 'thermo',
 	TYPE_AQUA = 'aqua';
 
@@ -155,6 +156,7 @@ module.exports = function (pHomebridge) {
 				this.path = optionalParams.path || optionalParams.folder || (this.storage == 'fs' ? homebridge.user.storagePath() : undefined);
 				this.filename = optionalParams.filename;
 				this.disableTimer = optionalParams.disableTimer || false;
+				this.disableRepeatLastData = optionalParams.disableRepeatLastData || false;
 			} else {
 				this.size = 4032;
 				this.minutes = 10;
@@ -238,13 +240,15 @@ module.exports = function (pHomebridge) {
 								}
 							}
 							calc.avrg.time = moment().unix(); // set the time of the avrg
-
-							for (let key in previousAvrg) { // each record of previous average
-								if (previousAvrg.hasOwnProperty(key) && key != 'time') { // except time
-									if (!backLog.length ||//calc.avrg[key] == 0 || // zero value
-										calc.avrg[key] === undefined) // no key (meaning no value received for this key yet)
-									{
-										calc.avrg[key] = previousAvrg[key];
+							
+							if(!fakegato.disableRepeatLastData) {
+								for (let key in previousAvrg) { // each record of previous average
+									if (previousAvrg.hasOwnProperty(key) && key != 'time') { // except time
+										if (!backLog.length ||//calc.avrg[key] == 0 || // zero value
+											calc.avrg[key] === undefined) // no key (meaning no value received for this key yet)
+										{
+											calc.avrg[key] = previousAvrg[key];
+										}
 									}
 								}
 							}
@@ -290,16 +294,18 @@ module.exports = function (pHomebridge) {
 							}
 							calc.avrg.time = moment().unix(); // set the time of the avrg
 
-							for (let key in previousAvrg) { // each record of previous average
-								if (previousAvrg.hasOwnProperty(key) && key != 'time') { // except time
-									if (!backLog.length ||//calc.avrg[key] == 0 || // zero value
-										calc.avrg[key] === undefined) // no key (meaning no value received for this key yet)
-									{
+							if(!fakegato.disableRepeatLastData) {
+								for (let key in previousAvrg) { // each record of previous average
+									if (previousAvrg.hasOwnProperty(key) && key != 'time') { // except time
+										if (!backLog.length ||//calc.avrg[key] == 0 || // zero value
+											calc.avrg[key] === undefined) // no key (meaning no value received for this key yet)
+										{
 										calc.avrg[key] = previousAvrg[key];
+										}
 									}
 								}
 							}
-
+								
 							fakegato._addEntry(calc.avrg);
 							timer.emptyData(fakegato);
 							return calc.avrg;
@@ -339,12 +345,14 @@ module.exports = function (pHomebridge) {
 							}
 							calc.avrg.time = moment().unix(); // set the time of the avrg
 
-							for (let key in previousAvrg) { // each record of previous average
-								if (previousAvrg.hasOwnProperty(key) && key != 'time') { // except time
-									if (!backLog.length ||//calc.avrg[key] == 0 || // zero value
-										calc.avrg[key] === undefined) // no key (meaning no value received for this key yet)
-									{
-										calc.avrg[key] = previousAvrg[key];
+							if(!fakegato.disableRepeatLastData) {
+								for (let key in previousAvrg) { // each record of previous average
+									if (previousAvrg.hasOwnProperty(key) && key != 'time') { // except time
+										if (!backLog.length ||//calc.avrg[key] == 0 || // zero value
+											calc.avrg[key] === undefined) // no key (meaning no value received for this key yet)
+										{
+											calc.avrg[key] = previousAvrg[key];
+										}
 									}
 								}
 							}
@@ -411,6 +419,33 @@ module.exports = function (pHomebridge) {
 						});
 					}
 					break;
+				case TYPE_SWITCH:
+					this.accessoryType116 = "01 0e01";
+					this.accessoryType117 = "01";
+					if (!this.disableTimer) {
+						homebridge.globalFakeGatoTimer.subscribe(this, function (params) { // callback
+							var backLog = params.backLog || [];
+							var immediate = params.immediate;
+
+							var fakegato = this.service;
+							var actualEntry = {};
+
+							if (backLog.length) {
+								if (!immediate) {
+									actualEntry.time = moment().unix();
+									actualEntry.status = backLog[0].status;
+								}
+								else {
+									actualEntry.time = backLog[0].time;
+									actualEntry.status = backLog[0].status;
+								}
+								fakegato.log.debug('**Fakegato-timer callbackSwitch: ', fakegato.accessoryName, ', immediate: ', immediate, ', entry: ', actualEntry);
+
+								fakegato._addEntry(actualEntry);
+							}
+						});
+					}
+					break;	
 				case TYPE_AQUA:
 					this.accessoryType116 = "03 1f01 2a08 2302";
 					this.accessoryType117 = "05";
@@ -495,6 +530,7 @@ module.exports = function (pHomebridge) {
 			switch (this.accessoryType) {
 				case TYPE_DOOR:
 				case TYPE_MOTION:
+				case TYPE_SWITCH:
 					if (!this.disableTimer)
 						homebridge.globalFakeGatoTimer.addData({ entry: entry, service: this, immediateCallback: true });
 					else
@@ -735,6 +771,7 @@ module.exports = function (pHomebridge) {
 								break;
 							case TYPE_DOOR:
 							case TYPE_MOTION:
+							case TYPE_SWITCH:
 								this.dataStream += Format(
 									" 0b %s%s%s%s",
 									numToHex(swap32(this.currentEntry), 8),
