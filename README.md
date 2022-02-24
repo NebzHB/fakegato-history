@@ -11,7 +11,7 @@ Module to emulate Elgato Eve history service in Homebridge accessories, so that 
 More details on communication protocol and custom Characteristics in the Wiki.
 
 Your plugin should expose the corresponding custom Elgato services and characteristics in order for the history to be seen in Eve.app. For a weather example see https://github.com/simont77/homebridge-weather-station-eve, for an energy example see https://github.com/simont77/homebridge-myhome/blob/master/index.js (MHPowerMeter class). For other types see the Wiki.
-Avoid the use of "/" in characteristics of the Information Service (e.g. serial number, manufacturer, etc.), since this may cause data to not appear in the history. Note that if your Eve.app is controlling more than one accessory for each type, the serial number should be unique, otherwise Eve.app will merge the histories. Adding hostname is recommended as well, for running multiple copies of the same plugin on different machines (i.e. production and development), i.e.:
+Avoid the use of "/" in characteristics of the Information Service (e.g. model, serial number, manufacturer, etc.), since this may cause data to not appear in the history. Note that if your Eve.app is controlling more than one accessory for each type, the serial number should be unique, otherwise Eve.app will merge the histories. Adding hostname is recommended as well, for running multiple copies of the same plugin on different machines (i.e. production and development), i.e.:
 
     .setCharacteristic(Characteristic.SerialNumber, hostname + "-" + this.deviceID)
 
@@ -28,7 +28,7 @@ And if your plugin is using V2 of the platform API, also add the above to your c
 
 where
 
-- accessoryType can be "weather", "energy", "room", "door", motion", "switch", "thermo", "aqua", or "custom"
+- accessoryType can be "weather", "energy", "room", "room2, "door", motion", "switch", "thermo", "aqua", or "custom"
 - Accessory should be the accessory using the service, in order to correctly set the service name and pass the log to the parent object. Your Accessory should have a `this.log` variable pointing to the homebridge logger passed to the plugin constructor (add a line `this.log=log;` to your plugin). Debug messages will be shown if homebridge is launched with -D option.
 - length is the history length; if no value is given length is set to 4032 samples
 
@@ -51,7 +51,7 @@ Depending on your accessory type:
 
 		this.loggingService.addEntry({time: Math.round(new Date().valueOf() / 1000), temp: this.temperature, pressure: this.airPressure, humidity: this.humidity});
 
-	AirPressure is in mbar, Temperature in Celsius, Humidity in %. Entries are internally averaged and sent every 10 minutes using the global fakegato timer. Your entries should be in any case periodic, in order to avoid error with the average. Average is done independently on each quantity (i.e. you may different periods, and entries with only one or two quantities)
+	AirPressure is in mbar, Temperature in Celsius, Humidity in %. Entries are internally averaged and sent every 10 minutes using the global fakegato timer. The temperature sensor needs to implement the `Characteristic.TemperatureDisplayUnits` Characteristic set to `Celsius`. Your entries should be in any case periodic, in order to avoid error with the average. Average is done independently on each quantity (i.e. you may different periods, and entries with only one or two quantities)
 
 * Add entries to history of accessory emulating **Eve Energy** (Outlet service) using something like this:
 
@@ -64,6 +64,12 @@ Depending on your accessory type:
 		this.loggingService.addEntry({time: Math.round(new Date().valueOf() / 1000), temp: this.temperature, humidity: this.humidity, ppm: this.ppm});
 
 	Temperature in Celsius, Humidity in %. Entries are internally averaged and sent every 10 minutes using the global fakegato timer. Your entries should be in any case periodic, in order to avoid error with the average. Average is done independently on each quantity (i.e. you may different periods, and entries with only one or two quantities)
+
+* Add entries to history of accessory emulating **Eve Room 2** (TempSensor, HumiditySensor and AirQuality Services) using something like this:
+
+  this.loggingService.addEntry({time: Math.round(new Date().valueOf() / 1000), temp: this.temperature, humidity: this.humidity, voc: this.voc});
+
+  Temperature in Celsius, Humidity in % and VOC in µg/m3. The Eve App will convert µg/m3 to ppb (by dividing by 4.57). Entries are internally averaged and sent every 10 minutes using the global fakegato timer. Your entries should be in any case periodic, in order to avoid error with the average. Average is done independently on each quantity (i.e. you may different periods, and entries with only one or two quantities)
 
 * Add entries to history of accessory emulating **Eve Door** (ContactSensor service) using something like this on every status change:
 
@@ -95,14 +101,14 @@ Depending on your accessory type:
 
 	Status can be 1 for ‘open’ or 0 for ‘close’. WaterAmount is meaningful (and needed) only when Status is close, and corresponds to the amount of water used during the just elapsed irrigation period in ml. Entries are of type "event", so entries received from the plugin will be added to the history as is. In addition to that, fakegato will add extra entries every 10 minutes repeating the last known state, in order to avoid the appearance of holes in the history.
 
-* Add entries to history of an accessory of a **custom** design or configuration.  Configurations validated include combination energy and switch device ( history of power and on/off ) and motion and temperature device ( history of motion and temperature ).
+* Add entries to history of an accessory of a **custom** design or configuration.  Configurations validated include combination energy and switch device ( history of power and on/off ), motion and temperature device ( history of motion and temperature ) and room and thermo device (history of temperature/humidity and setTemp/valvePosition).
 
 		this.LoggingService.addEntry({ time: Math.round(new Date().valueOf() / 1000), power: this.power });
 		this.LoggingService.addEntry({ time: Math.round(new Date().valueOf() / 1000), status: this.On });
 
   This is a sample power / switch device, and in the sample I'm sending the current power usage then updating the on/off status of the device.  For best results send power and on/off status separately.  Power on a regular interval and on/off when the device status changes.
 
-	Temperature, Humidity, Pressure and Power entries are averaged over the history interval.  Contact, Status and Motion are directly added to history records.
+	Temperature, Humidity, Pressure and Power entries are averaged over the history interval.  Contact, Status, Motion, setTemp and valvePosition are directly added to history records.
 
   valid entry | Characteristic
   --- | ---
@@ -114,6 +120,9 @@ Depending on your accessory type:
   contact | contact sensor state ( 0 / 1 )
   status | switch status ( 0 / 1 )
   motion | motion sensor state ( 0 / 1 )
+  voc | µg/m3
+  setTemp | Temperature in celcius
+  valvePosition | valvePosition in percentage
 
 For Energy and Door accessories it is also worth to add the custom characteristic E863F112 for resetting, respectively, the Total Consumption accumulated value or the Aperture Counter (not the history). See Wiki. The value of this characteristic is changed whenever the reset button is tapped on Eve, so it can be used to reset the locally stored value. The value seems to be the number of seconds from 1.1.2001. I left this characteristics out of fakegato-history because it is not part of the common  history service.
 
