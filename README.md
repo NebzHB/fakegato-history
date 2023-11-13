@@ -93,7 +93,7 @@ Depending on your accessory type:
 
 		this.loggingService.addEntry({time: Math.round(new Date().valueOf() / 1000), currentTemp: this.currentTemp, setTemp: this.setTemp, valvePosition: this.valvePosition});
 
-	currentTemp and setTemp in Celsius, valvePosition in %. Fakegato does not use the internal timer for Thermo, entries are added to the history as received from the plugin (Thermo accessory is under development). For setTemp to show, you have to add all the 3 extra thermo characteristics (see gist), and enable set temperature visualization under accessory options in Eve.app.
+	currentTemp and setTemp in Celsius, valvePosition in %. Entries are internally averaged and sent every 10 minutes using the global fakegato timer. For setTemp to show, you have to add all the 3 extra thermo characteristics (see gist), and enable set temperature visualization under accessory options in Eve.app.
 
 * Add entries to history of accessory emulating **Eve Aqua** (Valve service set to Irrigation Type) using something like this on every status change:
 
