@@ -378,6 +378,9 @@ module.exports = function (pHomebridge) {
 				case TYPE_THERMO:
 					this.accessoryType116 = "05 0102 1102 1001 1201 1d01";
 					this.accessoryType117 = "1f";
+					if (!this.disableTimer) {
+						homebridge.globalFakeGatoTimer.subscribe(this, this.calculateAverage);
+					}
 					break;
 			}
 
